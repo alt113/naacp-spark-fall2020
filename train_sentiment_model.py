@@ -52,7 +52,9 @@ def main():
 
     # build LSTM model
     # First implementation of BiLSTM w/ Attention
-    model = build_bidirectional_lstm(np.array(X_train), MAX_FEATURES, EMBED_SIZE)
+    model = build_bidirectional_lstm(N=np.array(X_train).shape[1],
+                                     max_features=MAX_FEATURES,
+                                     embed_size=EMBED_SIZE)
 
     # Second implementation of BiLSTM w/ Attention
     # model = build_temporal_model(max_len=max_length,

@@ -68,7 +68,6 @@ class AttentionWithContext(Layer):
         super(AttentionWithContext, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        assert len(input_shape) == 3
 
         self.W = self.add_weight(shape=(input_shape[-1], input_shape[-1]),
                                  initializer=self.init,
