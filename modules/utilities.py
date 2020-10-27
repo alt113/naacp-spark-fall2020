@@ -1,7 +1,7 @@
 """
     Utility helper file
 """
-# from modules.attention_layer import Attention, AttentionWithContext, Addition
+from modules.attention_layer import Attention
 from modules.constants import *
 
 import re
@@ -12,11 +12,11 @@ from nltk.corpus import stopwords
 
 import pandas as pd
 
-from tensorflow.keras.layers import Dense, LSTM, Embedding, Attention
-from tensorflow.keras.layers import Bidirectional
+from tensorflow.keras.layers import Dense, LSTM, Embedding
+from tensorflow.keras.layers import Bidirectional, Input, Concatenate, Dropout
 
 # ----- KERAS -----
-from keras import initializers, optimizers
+import tensorflow.keras as keras
 from keras.models import Sequential
 # ----- KERAS -----
 
@@ -77,39 +77,7 @@ def clean_text(text):
     return text
 
 
-# def build_temporal_model(max_len, hidden_units, num_layers, is_attention, is_bidirectional):
-#     adam = optimizers.Adam(lr=1e-3, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.01)
-#
-#     model = Sequential()
-#     model.add(Embedding(MAX_FEATURES, EMBED_SIZE, input_length=max_len))
-#
-#     # sequence_input = Input(shape=(max_len,), dtype="int32")
-#     # embedded_sequences = Embedding(max_features, embed_size)(sequence_input)
-#     #
-#     # lstm = Bidirectional(LSTM(cell_size, return_sequences=True), name="bi_lstm_0")(embedded_sequences)
-#
-#     for i in range(num_layers):
-#         return_sequences = is_attention or (num_layers > 1 and i < num_layers - 1)
-#
-#         if is_bidirectional:
-#             model.add(Bidirectional(LSTM(hidden_units, return_sequences=True),
-#                                     name="bi_lstm_{}".format(i),
-#                                     merge_mode='concat'))
-#         else:
-#             model.add(LSTM(hidden_units, return_sequences=return_sequences, dropout=0.2,
-#                            kernel_initializer=initializers.glorot_normal(seed=777), bias_initializer='zeros'))
-#
-#         if is_attention:
-#             model.add(AttentionWithContext())
-#             model.add(Addition())
-#
-#     model.add(Dense(1, activation="sigmoid"))
-#     model.compile(loss='binary_crossentropy', optimizer=adam, metrics=METRICS)
-#
-#     return model
-
-
-def build_bidirectional_lstm(N, max_features, embed_size):
+def build_bidirectional_lstm(N, max_features, embed_size, is_attention=False):
     """
         Builder function for the Bidirectional LSTM with user-specification of an Attention Layer.
 
@@ -118,24 +86,42 @@ def build_bidirectional_lstm(N, max_features, embed_size):
     :param embed_size: (int) size of embedding
     :return: (tf.keras.Model) LSTM model
     """
-    model = Sequential()
+    if is_attention:
+        sequence_input = Input(shape=(N,))
+        embedded_sequences = Embedding(max_features, embed_size)(sequence_input)
 
-    model.add(Embedding(max_features, embed_size, input_length=N))
-    model.add(Bidirectional(LSTM(196, dropout=0.2, return_state=True)))
+        (bilstm, forward_h, forward_c, backward_h, backward_c) = Bidirectional(
+            LSTM(196,
+                 dropout=0.2,
+                 return_state=True,
+                 return_sequences=True)
+        )(embedded_sequences)
 
-    # if is_attention:
-    #     # model.add(AttentionWithContext(input_shape=(BATCH_SIZE, 196*2, MAX_FEATURES)))
-    #     # model.add(Addition(input_shape=(BATCH_SIZE, 196*2, MAX_FEATURES)))
-    #     tmp = Dense(MAX_FEATURES, activation='tanh')
-    #     model.add(Attention(use_scale=True, dropout=0.2)([
-    #         model.layers[1], tmp
-    #     ]))
-    #     model.add(tmp)
+        state_h = Concatenate()([forward_h, backward_h])
+        state_c = Concatenate()([forward_c, backward_c])
 
-    model.add(Dense(1, activation="sigmoid"))
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=METRICS)
+        context_vector, attention_weights = Attention(10)(bilstm, state_h)
 
-    return model
+        dense1 = Dense(20, activation="relu")(context_vector)
+
+        dropout = Dropout(0.05)(dense1)
+        output = Dense(1, activation="sigmoid")(dropout)
+
+        model = keras.Model(inputs=sequence_input, outputs=output)
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=METRICS)
+
+        return model
+
+    else:
+        model = Sequential()
+
+        model.add(Embedding(max_features, embed_size, input_length=N))
+        model.add(Bidirectional(LSTM(196, dropout=0.2, return_state=True)))
+
+        model.add(Dense(1, activation="sigmoid"))
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=METRICS)
+
+        return model
 
 
 def plot_confusion_matrix(labels, predictions):

@@ -54,21 +54,11 @@ def main():
     # First implementation of BiLSTM w/ Attention
     model = build_bidirectional_lstm(N=np.array(X_train).shape[1],
                                      max_features=MAX_FEATURES,
-                                     embed_size=EMBED_SIZE)
-
-    # Second implementation of BiLSTM w/ Attention
-    # model = build_temporal_model(max_len=max_length,
-    #                              hidden_units=RNN_CELL_SIZE,
-    #                              num_layers=1,
-    #                              is_attention=True,
-    #                              is_bidirectional=True)
+                                     embed_size=EMBED_SIZE,
+                                     is_attention=True)
 
     # summarize layers
     print(model.summary())
-
-    # model.compile(loss='binary_crossentropy',
-    #               optimizer='adam',
-    #               metrics=METRICS)
 
     history = model.fit(X_train,
                         y_train,
